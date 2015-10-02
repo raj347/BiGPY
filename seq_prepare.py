@@ -15,7 +15,7 @@ def setUp():
     parser = OptionParser()
     
     parser.add_option("-i", "--input", dest = "input", help = "FILE to read input sequence list from", metavar = "FILE")
-    parser.add_option("-o", "--output", dest = "output", default = "sequences.out", help = "FILE to print cleaned sequence list to", metavar = "FILE")
+    parser.add_option("-o", "--output", dest = "output", default = "clean_sequences.fsa", help = "FILE to print cleaned sequence list to", metavar = "FILE")
     parser.add_option("-l", "--length", dest = "length", default = 100, help = "Filter sequences shorter than SIZE", metavar = "SIZE")
     parser.add_option("-d", "--dna", dest = "type", default = True, help = "DNA/RNA or amino acid sequences supported\nTrue = DNA\nFalse = amino acid", metavar = "{True|False}")
     parser.add_option("-c", "--clean", dest = "clean", default = True, help = "Remove sequences that contain invalid characters", metavar = "{True|False}")
