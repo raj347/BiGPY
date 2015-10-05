@@ -75,32 +75,39 @@ def parse(options):
     cleanFile = open(options.output + "Clean.txt", "w+")
     mapFile = open(options.output + "Map.fsa", "w+")
     removedSeqs = open(options.output + "Removed.fsa", "w+")
+    n = 0;
 
     # Iterate through input and write to output files
     for record in SeqIO.parse(inFile, "fasta"):
         if options.clean:
             if (len(record.seq) > options.length and checkAlphabet(str(record.seq), options)):
-                seqFile.write(text_to_bi(str(record.seq)) + '\n')
-                cleanFile.write(str(record.seq) + '\n')
-                mapFile.write(str(record.id) + '\n' + str(record.seq) + '\n')
+                seqFile.write(str(bin(n)) + '\t' + text_to_bi(str(record.seq)) + '\n')
+                cleanFile.write(str(bin(n)) + '\t' + str(record.seq) + '\n')
+                mapFile.write(str(n) + '\t' + str(record.description) + '\n')
             else:
-                removedSeqs.write(str(record.id) + '\n' + str(record.seq) + '\n')
+                removedSeqs.write(str(record.description) + '\n' + str(record.seq) + '\n')
                 
         else:
             if (len(record.seq) > options.length):
-                seqFile.write(text_to_bi(str(record.seq)) + '\n')
-                cleanFile.write(str(record.seq) + '\n')
-                mapFile.write(str(record.id) + '\n' + str(record.seq) + '\n')
+                seqFile.write(str(bin(n)) + '\t' + text_to_bi(str(record.seq)) + '\n')
+                cleanFile.write(str(bin(n)) + '\t' + str(record.seq) + '\n')
+                mapFile.write(str(n) + '\t' + str(record.description) + '\n')
+            else:
+                removedSeqs.write(str(record.description) + '\n' + str(record.seq) + '\n')
+        n += 1
 
     inFile.close()
     seqFile.close()
+    cleanFile.close()
+    mapFile.close()
+    removedSeqs.close()
 
 
 # Main
 def main():
 
     options = setUp()
-    info(options)
+    #info(options)
     parse(options)
 
 if __name__ == "__main__":
