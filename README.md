@@ -1,6 +1,6 @@
 BiGPy - Biological Similarity Graphs with PySpark.
 
-If no output filename is provided the following will be the output files:
+bigpy-prepare is used to prepare input data to be used later for bigpy-sketch. It takes an input file or directory and processes the fasta files within to create several output files. If no output filename is provided the following will be the output files:
 
 bigpyRemoved.fsa - Lists all sequences, with headers, from the input file were filtered during the processing stage.
 
