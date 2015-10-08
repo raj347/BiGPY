@@ -1,17 +1,17 @@
-'''
-$Id$
-File: bigpy-prepare.cpp
-Created: September 17, 2015
-
-Authors: Paul Kowalski <paulkowa@buffalo.edu>
-         Dhanasekar Karuppasamy <dhanasek@buffalo.edu>
-Copyright (c) 2015-2016 Paul Kowalski, Dhanasekar Karuppasamy
-Distributed under the MIT License.
-See accompanying file LICENSE_MIT.txt.
-
-This file is part of BiGPy.
-'''
 #!/usr/bin/python
+
+# $Id$
+# File: bigpy-prepare.cpp
+# Created: September 17, 2015
+# Authors: Paul Kowalski <paulkowa@buffalo.edu>
+#         Dhanasekar Karuppasamy <dhanasek@buffalo.edu>
+# Copyright (c) 2015-2016 Paul Kowalski, Dhanasekar Karuppasamy
+
+# Distributed under the MIT License.
+# See accompanying file LICENSE_MIT.txt.
+# This file is part of BiGPy.
+
+
 
 from Bio import SeqIO
 from optparse import OptionParser
@@ -22,16 +22,21 @@ import re
 import binascii
 import os
 
+
 # Handle command line arg options
 def setUp():
     parser = OptionParser()
-    parser.add_option("-i", "--input", dest = "input", help = "{FILE|DIR} to read input sequence list from", metavar = "{FILE|DIR}")
-    parser.add_option("-o", "--output", dest = "output", default = "bigpy", help = "FILE to print results to", metavar = "FILE")
-    parser.add_option("-l", "--length", dest = "length", default = 100, help = "Filter sequences shorter than SIZE", metavar = "SIZE")
-    parser.add_option("-d", "--dna", dest = "type", default = True, help = "DNA/RNA or amino acid sequences supported\nTrue = DNA\nFalse = amino acid", metavar = "{True|False}")
-    parser.add_option("-c", "--clean", dest = "clean", default = True, help = "Remove sequences that contain invalid characters", metavar = "{True|False}")
+    parser.add_option("-i", "--input", action="store", type="string", dest = "input", default = "none", help = "{FILE|DIR} to read input sequence list from", metavar = "{FILE|DIR}")
+    parser.add_option("-o", "--output", action="store", type="string", dest = "output", default = "bigpy", help = "{FILE|DIR} to print results to", metavar = "{FILE|DIR}")
+    parser.add_option("-l", "--length", action="store", type="int", dest = "length", default = 100, help = "Filter sequences shorter than SIZE", metavar = "SIZE")
+    parser.add_option("-d", "--dna", action="store", dest = "type", default = True, help = "DNA/RNA or amino acid sequences supported\nTrue = DNA\nFalse = amino acid", metavar = "{True|False}")
+    parser.add_option("-c", "--clean", action="store", dest = "clean", default = True, help = "Remove sequences that contain invalid characters", metavar = "{True|False}")
     (options, args) = parser.parse_args()
 
+    if options.input == "none":
+        parser.error("Input file or directory required\nUse -h or --help for options")
+    if options.output.find("/") != -1:
+        parser.error("Currently BiGPY only supports printout to same directory\nPlease only provide a filename without extension (ie. myfile)")
     return options
 
 # Run and print all information
