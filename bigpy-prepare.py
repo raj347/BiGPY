@@ -26,31 +26,35 @@ import os
 # Handle command line arg options
 def setUp():
     parser = OptionParser()
-    parser.add_option("-i", "--input", action="store", type="string", dest = "input", default = "none", help = "{FILE|DIR} to read input sequence list from", metavar = "{FILE|DIR}")
-    parser.add_option("-o", "--output", action="store", type="string", dest = "output", default = "bigpy", help = "{FILE|DIR} to print results to", metavar = "{FILE|DIR}")
-    parser.add_option("-l", "--length", action="store", type="int", dest = "length", default = 100, help = "Filter sequences shorter than SIZE", metavar = "SIZE")
-    parser.add_option("-d", "--dna", action="store", dest = "type", default = True, help = "DNA/RNA or amino acid sequences supported\nTrue = DNA\nFalse = amino acid", metavar = "{True|False}")
-    parser.add_option("-c", "--clean", action="store", dest = "clean", default = True, help = "Remove sequences that contain invalid characters", metavar = "{True|False}")
+    parser.add_option("-i", "--input", action = "store", type = "string", dest = "input", default = "N/A", help = "{FILE|DIR} to read input sequence list from\tCurrently only fsa/fasta files supported", metavar = "{FILE|DIR}")
+    parser.add_option("-o", "--output", action = "store", type = "string", dest = "output", default = "N/A", help = "FILE to print output files to" "\t\t\t\tFILE is a name without extension" "\nie. BiGPY", metavar = "FILE")
+    parser.add_option("-a", "--amino", action = "store_false", dest = "dna", default = True, help = "DNA/RNA or amino acid sequences supported" "\t\tUse this flag to indicate animo acid input" "\tDEFAULT= DNA/RNA")
+    parser.add_option("-l", "--length", action = "store", type = "int", dest = "length", default = 0, help = "Filter sequences shorter than SIZE \t\tDEFAULT= 0", metavar = "SIZE")
+    parser.add_option("-c", "--clean", action = "store_true", dest = "clean", default = False, help = "Filter sequences that contain invalid characters\tUse this flag to enable cleaning")
     (options, args) = parser.parse_args()
 
-    if options.input == "none":
-        parser.error("Input file or directory required\nUse -h or --help for options")
-    if options.output.find("/") != -1:
-        parser.error("Currently BiGPY only supports printout to same directory\nPlease only provide a filename without extension (ie. myfile)")
+    # Print error messages if required options are not provided
+    if options.input == "N/A":
+        parser.error("\n\tInput file or directory required\n\tUse -h or --help for options")
+    if options.output.find('/') != -1 or options.output.find('.') != -1:
+        parser.error("\n\tOutput filename required.\n\tPlease include a filename without extension (ie. bigpy)\n\tCurrently BiGPY only supports output to same directory\n\tUse -h or --help for options")
     return options
 
 # Run and print all information
 def run(options):
+    # Get list of files to be processed
     fileList = []
     print "scanning " + options.input + " for input files..."
     files = checkDir(options, fileList)
     print "found " + str(files) + " input file(s)\nextracting sequences..."
+    # Parse files
     start_time = timeit.default_timer()
     statStruct = parse(options, fileList)
     elapsed = timeit.default_timer() - start_time
+    #Finish
     print "valid " + statStruct.validSeqs + " out of " + statStruct.countSeqs + " sequences\nwriting output files...\n" + \
         "shortest sequence: " + statStruct.shortSeq + "\nlongest sequence: " + statStruct.longSeq + "\naverage sequence: " + statStruct.avgSeq + \
-        "\nmedian sequence: " + statStruct.medSeq + "\ntime: " + str(elapsed) + " seconds\ndone!"
+        "\ntime: " + str("%.2f" % elapsed) + " seconds\ndone!"
 
 
 # Check input directory for all fasta / fsa files
@@ -70,14 +74,14 @@ def checkDir(options, fileList):
 # Parse the input file and print to output file cleaned sequences
 def parse(options, fileList):
     # Open output files
-    seqFile = open(options.output + "Seqs.seq", 'w+')
-    cleanFile = open(options.output + "Clean.txt", "w+")
-    mapFile = open(options.output + "Map.fsa", "w+")
-    removedSeqs = open(options.output + "Removed.fsa", "w+")
+    seqFile = open(options.output + ".bseq", 'w+')
+    cleanFile = open(options.output + ".btxt", "w+")
+    mapFile = open(options.output + ".bmap", "w+")
+    removedSeqs = open(options.output + ".brm", "w+")
 
     # Create statistic storage
-    statStruct = namedtuple('statStruct', ['countSeqs', 'validSeqs', 'shortSeq', 'longSeq', 'avgSeq', 'medSeq'])
-    count, valid, shortest, longest, avg, median = (0,) * 6
+    statStruct = namedtuple('statStruct', ['countSeqs', 'validSeqs', 'shortSeq', 'longSeq', 'avgSeq'])
+    count, valid, shortest, longest, avg = (0,) * 5
 
     # Iterate through input and write to output files
     for f in fileList:
@@ -99,24 +103,29 @@ def parse(options, fileList):
                 longest = len(record.seq)
             avg = average(len(record.seq), count + 1, avg)
 
-            # Process sequence                
+            # Process sequence and write to output files
             if options.clean:
-                if (len(record.seq) > options.length and checkAlphabet(str(record.seq), options)):
-                    seqFile.write(str(bin(count)) + '\t' + text_to_bi(str(record.seq)) + '\n')
-                    cleanFile.write(str(bin(count)) + '\t' + str(record.seq) + '\n')
-                    mapFile.write(str(count) + '\t' + str(record.description) + '\n')
+                if (len(record.seq) > options.length and checkAlphabet(str(record.seq).upper(), options)):
+                    seqFile.write(str(bin(valid)) + '\t' + text_to_bi(str(record.seq).upper()) + '\n')
+                    cleanFile.write(str(bin(valid)) + '\t' + str(record.seq).upper() + '\n')
+                    mapFile.write(str(valid) + '\t' + str(record.description) + '\n')
                     valid += 1
                 else:
-                    removedSeqs.write(str(record.description) + '\n' + str(record.seq) + '\n')
+                    removedSeqs.write(str(count) + '\t' + str(record.description) + '\n')
                 
             else:
                 if (len(record.seq) > options.length):
-                    seqFile.write(str(bin(count)) + '\t' + text_to_bi(str(record.seq)) + '\n')
-                    cleanFile.write(str(bin(count)) + '\t' + str(record.seq) + '\n')
-                    mapFile.write(str(count) + '\t' + str(record.description) + '\n')
+                    if checkAlphabet(str(record.seq).upper(), options):
+                        seqFile.write(str(bin(valid)) + '\t' + text_to_bi(str(record.seq).upper()) + '\n')
+                        cleanFile.write(str(bin(valid)) + '\t' + str(record.seq).upper() + '\n')
+                    else:
+                        out = fixSeq(str(record.seq).upper(), options)
+                        seqFile.write(str(bin(valid)) + '\t' + text_to_bi(out) + '\n')
+                        cleanFile.write(str(bin(valid)) + '\t' + out + '\n')
+                    mapFile.write(str(valid) + '\t' + str(record.description) + '\n')
+                    valid += 1
                 else:
-                    removedSeqs.write(str(record.description) + '\n' + str(record.seq) + '\n')
-                valid += 1
+                    removedSeqs.write(str(count) + '\t' + str(record.description) + '\n')
             count += 1
 
         inFile.close()
@@ -126,7 +135,7 @@ def parse(options, fileList):
     mapFile.close()
     removedSeqs.close()
 
-    return statStruct(str(count), str(valid), str(shortest), str(longest), str(avg), str(median))
+    return statStruct(str(count), str(valid), str(shortest), str(longest), str(avg))
 
 # Compute rolling average
 def average(length, count, avg):
@@ -138,7 +147,7 @@ def average(length, count, avg):
 # Checks if sequence contains only valid characters
 def checkAlphabet(seq, options):
     # Check if valid DNA sequence
-    if options.type:
+    if options.dna:
         if re.match("^[ACTG]*$", seq):
             return True
 
@@ -147,6 +156,13 @@ def checkAlphabet(seq, options):
         if re.match("^[ACDEFGHIKLMNPQRSTVWY]*$", seq):
             return True
     return False
+
+# Replace invalid characters in a sequence with A
+def fixSeq(seq, options):
+    for l in seq:
+        if checkAlphabet(l, options) == False:
+            seq = seq.replace(l, 'A')
+    return seq
 
 # Convert string to binary
 def text_to_bi(text, encoding='utf-8', errors='surrogatepass'):
