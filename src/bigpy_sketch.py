@@ -12,11 +12,62 @@ See accompanying file LICENSE_MIT.txt.
 This file is part of BiGPy.
 '''
 
-from optparse import OptionParser
+import logging
 import pprint
+from optparse import OptionParser
+from pyspark import SparkContext
+from pyspark.streaming import StreamingContext
 from utils import timeit
 
 pp = pprint.PrettyPrinter(indent=4)
+
+class BigPyElasticSketch:
+    '''
+    Implements the Elastic Sketch phase.
+    TODO :
+       Implement logging
+    '''
+
+    SPARK_APP_NAME = "BitPyElasticSketch"
+
+    def __init__(self, options):
+        '''
+        Initialize sketch phase.
+        '''
+        self.input = options.input
+        self.output = options.output
+        self.kmer_length = int(options.kmer_length)
+        self.spark_master = options.spark_master
+        self.spark_context = None
+
+    def kmerize(self, seq):
+        '''
+        Creates kmers for a given string @seq with @k as n.
+        TODO : 
+            * Change the implementation to use generators
+        '''
+        kmers = [ ]
+        for i in xrange(len(seq) - (self.kmer_length-1)):
+            kmers.append(seq[i:i+self.kmer_length])
+        return kmers
+
+    def init_spark(self):
+        '''
+        Create Spark context.
+        '''
+        try:
+            self.spark_context = SparkContext(appName="PySparkElastic", \
+                                          master=self.spark_master)
+        except:
+            raise "Could not initialize Spark context."
+
+    def sketch(self):
+        '''
+        Sketch logic
+        '''
+        self.init_spark()
+
+
 
 def setup():
     '''
@@ -44,6 +95,12 @@ def setup():
         dest="kmer_length", \
         default=None, \
         help="Lenght of the KMERs")
+    parser.add_option("-m", "--master", \
+        action="store", \
+        type="string", \
+        dest="spark_master", \
+        default="local[*]", \
+        help="Spark Master node. Defauls to \"local[*]\"")
 
     (options, args) = parser.parse_args()
 
@@ -55,26 +112,20 @@ def setup():
         parser.error("Output filename required.\n" +\
                      "Please include a filename without extension.\n" +\
                      "Use -h or --help for options\n")
-    if not options.kmer_length:
+    if not int(options.kmer_length):
         parser.error("KMER length required.\n"+
                       "Use -h or --help for options.\n")
     return options
 
 
 @timeit
-def run(options):
-    '''
-    Sketch Phase implementation
-    '''
-    pass
-
-@timeit
 def main():
     '''
     Get the File names for I/O and run the sketch phase.
     '''
-    options = setup()
-    run(options)
+    options = setup() 
+    sketch_phase = BigPyElasticSketch(options)
+    sketch_phase.sketch() 
 
 if __name__ == "__main__":
     main()
