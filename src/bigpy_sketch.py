@@ -13,6 +13,7 @@ This file is part of BiGPy.
 '''
 
 import logging
+import mmh3
 import pprint
 from optparse import OptionParser
 from pyspark import SparkContext
@@ -21,53 +22,39 @@ from utils import timeit
 
 pp = pprint.PrettyPrinter(indent=4)
 
-class BigPyElasticSketch:
+SPARK_APP_NAME = "BitPyElasticSketch"
+
+def kmerize(seq, kmer_length):
     '''
-    Implements the Elastic Sketch phase.
+    Creates kmers for a given string @seq with @k as n.
     TODO :
-       Implement logging
+        * Change the implementation to use generators
     '''
+    kmers = [ ]
+    for i in xrange(len(seq) - (kmer_length-1)):
+        kmers.append((i, seq[i:i+kmer_length]))
+    return kmers
 
-    SPARK_APP_NAME = "BitPyElasticSketch"
+def create_kmer_tuple(astring, kmer_length):
+   '''
+   For a string @astring, create a tuple (seq_id, kmers_index , hash)
+   '''
+   seq_id, seq = astring.split("\t")
+   kmer_tuple = []
+   for k in kmerize(seq, kmer_length):
+       # k is a tuple of (index, kmer_string)
+       kmer_tuple.append((seq_id, mmh3.hash64(k[1])[0], k[0]))
+   return kmer_tuple
 
-    def __init__(self, options):
-        '''
-        Initialize sketch phase.
-        '''
-        self.input = options.input
-        self.output = options.output
-        self.kmer_length = int(options.kmer_length)
-        self.spark_master = options.spark_master
-        self.spark_context = None
-
-    def kmerize(self, seq):
-        '''
-        Creates kmers for a given string @seq with @k as n.
-        TODO : 
-            * Change the implementation to use generators
-        '''
-        kmers = [ ]
-        for i in xrange(len(seq) - (self.kmer_length-1)):
-            kmers.append(seq[i:i+self.kmer_length])
-        return kmers
-
-    def init_spark(self):
-        '''
-        Create Spark context.
-        '''
-        try:
-            self.spark_context = SparkContext(appName="PySparkElastic", \
-                                          master=self.spark_master)
-        except:
-            raise "Could not initialize Spark context."
-
-    def sketch(self):
-        '''
-        Sketch logic
-        '''
-        self.init_spark()
-
-
+def sketch(options):
+    '''
+    Sketch logic
+    '''
+    spark_context = SparkContext(appName=SPARK_APP_NAME, \
+                              master=options.spark_master)
+    fastaRDD = spark_context.textFile(options.input)
+    kmerRDD = fastaRDD.flatMap(lambda v : create_kmer_tuple(v, options.kmer_length))
+    pp.pprint(kmerRDD.collect())
 
 def setup():
     '''
@@ -91,7 +78,7 @@ def setup():
         metavar="FILE")
     parser.add_option("-k", "--kmerlength", \
         action="store", \
-        type="string", \
+        type="int", \
         dest="kmer_length", \
         default=None, \
         help="Lenght of the KMERs")
@@ -123,9 +110,8 @@ def main():
     '''
     Get the File names for I/O and run the sketch phase.
     '''
-    options = setup() 
-    sketch_phase = BigPyElasticSketch(options)
-    sketch_phase.sketch() 
+    options = setup()
+    sketch(options)
 
 if __name__ == "__main__":
     main()
