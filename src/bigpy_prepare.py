@@ -11,17 +11,12 @@
 # See accompanying file LICENSE_MIT.txt.
 # This file is part of BiGPy.
 
-
-
 from Bio import SeqIO
 from optparse import OptionParser
-from collections import namedtuple
+import sys
 import timeit
-import fileinput
 import re
-import binascii
 import os
-
 
 # Handle command line arg options
 def setUp():
@@ -61,7 +56,7 @@ def setUp():
         default=False, \
         help="Filter sequences that contain invalid characters" \
         "\tUse this flag to enable cleaning")
-    (options, args) = parser.parse_args()
+    (options, sys.argv) = parser.parse_args()
 
     # Print error messages if required options are not provided
     if options.input == "N/A":
@@ -76,121 +71,136 @@ def setUp():
 
 # Run and print all information
 def run(options):
+
     # Get list of files to be processed
+    stats = Stats()
     fileList = []
     print "scanning " + options.input + " for input files..."
     files = checkDir(options, fileList)
     print "found " + str(files) + " input file(s)\nextracting sequences..."
+
     # Parse files
     start_time = timeit.default_timer()
-    statStruct = parse(options, fileList)
+    parse(options, fileList, stats)
     elapsed = timeit.default_timer() - start_time
-    #Finish
-    print "valid " + statStruct.validSeqs + " out of " + \
-    statStruct.countSeqs + " sequences\nwriting output files...\n" + \
-    "shortest sequence: " + statStruct.shortSeq + "\nlongest sequence: " + \
-    statStruct.longSeq + "\naverage sequence: " + statStruct.avgSeq + \
+
+    # Finish
+    print "valid " + str(stats.valid) + " out of " + \
+    str(stats.count) + " sequences\nwriting output files...\n" + \
+    "shortest sequence: " + str(stats.short) + "\nlongest sequence: " + \
+    str(stats.long) + "\naverage sequence: " + str(stats.avg) + \
     "\ntime: " + str("%.2f" % elapsed) + " seconds\ndone!"
 
-
 # Check input directory for all fasta / fsa files
-def checkDir(options, fileList):
+def checkDir(options, filelist):
     inputFiles = 0
     if options.input[-1:] == '/':
-        for file in os.listdir(options.input):
-            if file.endswith(".fsa") or file.endswith(".fasta"):
-                fileList.append(str(file))
+        for files in os.listdir(options.input):
+            if files.endswith(".fsa") or files.endswith(".fasta"):
+                filelist.append(str(files))
                 inputFiles += 1
     else:
-        fileList.append(options.input)
+        filelist.append(options.input)
         inputFiles += 1
     return inputFiles
 
+# Stores all statistical information for run
+class Stats(object):
+    def __init__(self):
+        self.count = 0
+        self.valid = 0
+        self.avg = -1
+        self.short = -1
+        self.long = -1
+
+    # Update values in class
+    def update(self, length, valid):
+        self.shorter(length)
+        self.longer(length)
+        self.average(length, self.count)
+        self.valid = valid
+        self.count += 1
+
+    # Check Shortest
+    def shorter(self, length):
+        if self.short == -1:
+            self.short = length
+        elif length < self.short:
+            self.short = length
+
+    # Check Longest
+    def longer(self, length):
+        if self.long == -1:
+            self.long = length
+        elif self.long < length:
+            self.long = length
+
+    # Compute rolling average
+    def average(self, length, count):
+        if count == 0:
+            self.avg = length
+        else:
+            self.avg = (self.avg + ((length - self.avg) / (count + 1)))
 
 # Parse the input file and print to output file cleaned sequences
-def parse(options, fileList):
+def parse(options, fileList, stats):
+    valid = 0
+
     # Open output files
-    seqFile = open(options.output + ".bseq", 'w+')
     cleanFile = open(options.output + ".btxt", "w+")
     mapFile = open(options.output + ".bmap", "w+")
     removedSeqs = open(options.output + ".brm", "w+")
 
-    # Create statistic storage
-    statStruct = namedtuple('statStruct', \
-        ['countSeqs', 'validSeqs', 'shortSeq', 'longSeq', 'avgSeq'])
-    count, valid, shortest, longest, avg = (0,) * 5
-
     # Iterate through input and write to output files
-    for f in fileList:
+    for files in fileList:
         if options.input[-1:] == '/':
-            inFile = open(options.input + f, 'rU')
-
+            inFile = open(options.input + files, 'rU')
         else:
-            inFile = open(f, 'rU')
+            inFile = open(files, 'rU')
 
         for record in SeqIO.parse(inFile, "fasta"):
-            # Record longest and shorest sequences
-            if count == 0:
-                shortest = len(record.seq)
-                longest = len(record.seq)
-                avg = len(record.seq)
-            elif len(record.seq) < shortest:
-                shortest = len(record.seq)
-            elif len(record.seq) > longest:
-                longest = len(record.seq)
-            avg = average(len(record.seq), count + 1, avg)
-
             # Process sequence and write to output files
+            # Remove sequences < length
+            # If clean remove all sequences containing invalid chars
             if options.clean:
                 if len(record.seq) > options.length and \
                 checkAlphabet(str(record.seq).upper(), options):
-                    seqFile.write(str(bin(valid)) + '\t' + \
-                        text_to_bi(str(record.seq).upper()) + '\n')
-                    cleanFile.write(str(valid) + '\t' + \
+                    cleanFile.write(str(stats.valid) + '\t' + \
                         str(record.seq).upper() + '\n')
-                    mapFile.write(str(valid) + '\t' + \
+                    mapFile.write(str(stats.valid) + '\t' + \
                         str(record.description) + '\n')
                     valid += 1
                 else:
-                    removedSeqs.write(str(count) + '\t' + \
+                    removedSeqs.write(str(stats.count) + '\t' + \
                         str(record.description) + '\n')
-
+            # If !clean replace all invalid chars with A
             else:
                 if len(record.seq) > options.length:
                     if checkAlphabet(str(record.seq).upper(), options):
-                        seqFile.write(str(bin(valid)) + '\t' + \
-                            text_to_bi(str(record.seq).upper()) + '\n')
-                        cleanFile.write(str(valid) + '\t' + str(record.seq).upper() + '\n')
+                        cleanFile.write(str(stats.valid) + '\t' + \
+                            str(record.seq).upper() + '\n')
+                        mapFile.write(str(stats.valid) + '\t' + \
+                            str(record.description) + '\n')
                     else:
                         out = fixSeq(str(record.seq).upper(), options)
-                        seqFile.write(str(bin(valid)) + '\t' + \
-                            text_to_bi(out) + '\n')
-                        cleanFile.write(str(valid) + '\t' + out + '\n')
-                    mapFile.write(str(valid) + '\t' + \
-                        str(record.description) + '\n')
+                        cleanFile.write(str(stats.valid) + '\t' + out + '\n')
+                        mapFile.write(str(stats.valid) + '\t' + \
+                            str(record.description) + '\n')
                     valid += 1
                 else:
-                    removedSeqs.write(str(count) + '\t' + str(record.description) + '\n')
-            count += 1
-
+                    removedSeqs.write(str(stats.count) + '\t' + \
+                        str(record.description) + '\n')
+            # Record longest and shorest sequences
+            stats.update(len(record.seq), valid)
         inFile.close()
 
-    seqFile.close()
     cleanFile.close()
     mapFile.close()
     removedSeqs.close()
 
-    return statStruct(str(count), str(valid), str(shortest), str(longest), str(avg))
-
-# Compute rolling average
-def average(length, count, avg):
-    if count == 1:
-        return avg
-    else:
-        return (avg + ((length - avg) / (count + 1)))
-
 # Checks if sequence contains only valid characters
 def checkAlphabet(seq, options):
+
     # Check if valid DNA sequence
     if options.dna:
         if re.match("^[ACTG]*$", seq):
@@ -204,26 +214,10 @@ def checkAlphabet(seq, options):
 
 # Replace invalid characters in a sequence with A
 def fixSeq(seq, options):
-    for l in seq:
-        if checkAlphabet(l, options) == False:
-            seq = seq.replace(l, 'A')
+    for letter in seq:
+        if checkAlphabet(letter, options) == False:
+            seq = seq.replace(letter, 'A')
     return seq
-
-# Convert string to binary
-def text_to_bi(text, encoding='utf-8', errors='surrogatepass'):
-    bits = bin(int(binascii.hexlify(text.encode(encoding, errors)), 16))[2:]
-    return bits.zfill(8 * ((len(bits) + 7) // 8))
-
-# Convert binary to string
-def text_from_bi(bits, encoding='utf-8', errors='surrogatepass'):
-    n = int(bits, 2)
-    return int2bytes(n).decode(encoding, errors)
-
-# Break binary sequence into bytes for conversion to ACSII
-def int2bytes(i):
-    hex_string = '%x' % i
-    n = len(hex_string)
-    return binascii.unhexlify(hex_string.zfill(n + (n & 1)))
 
 # Main
 def main():
