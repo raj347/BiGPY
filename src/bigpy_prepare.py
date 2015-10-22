@@ -1,15 +1,16 @@
 #!/usr/bin/python
 
-# $Id$
-# File: bigpy-prepare.cpp
-# Created: September 17, 2015
-# Authors: Paul Kowalski <paulkowa@buffalo.edu>
-#         Dhanasekar Karuppasamy <dhanasek@buffalo.edu>
-# Copyright (c) 2015-2016 Paul Kowalski, Dhanasekar Karuppasamy
+'''
+File: bigpy-prepare.cpp
+Created: September 17, 2015
+Authors: Paul Kowalski <paulkowa@buffalo.edu>
+         Dhanasekar Karuppasamy <dhanasek@buffalo.edu>
+Copyright (c) 2015-2016 Paul Kowalski, Dhanasekar Karuppasamy
 
-# Distributed under the MIT License.
-# See accompanying file LICENSE_MIT.txt.
-# This file is part of BiGPy.
+Distributed under the MIT License.
+See accompanying file LICENSE_MIT.txt.
+This file is part of BiGPy.
+'''
 
 from Bio import SeqIO
 from optparse import OptionParser
@@ -18,8 +19,10 @@ import timeit
 import re
 import os
 
-# Handle command line arg options
 def setUp():
+    '''
+    Handle command line arg options
+    '''
     parser = OptionParser()
     parser.add_option("-i", "--input", \
         action="store", \
@@ -69,9 +72,10 @@ def setUp():
             "\n\tUse -h or --help for options")
     return options
 
-# Run and print all information
 def run(options):
-
+    '''
+    Run and print all information
+    '''
     # Get list of files to be processed
     stats = Stats()
     fileList = []
@@ -91,8 +95,10 @@ def run(options):
     str(stats.long) + "\naverage sequence: " + str(stats.avg) + \
     "\ntime: " + str("%.2f" % elapsed) + " seconds\ndone!"
 
-# Check input directory for all fasta / fsa files
 def checkDir(options, filelist):
+    '''
+    Check input directory for all fasta / fsa files
+    '''
     inputFiles = 0
     if options.input[-1:] == '/':
         for files in os.listdir(options.input):
@@ -104,8 +110,10 @@ def checkDir(options, filelist):
         inputFiles += 1
     return inputFiles
 
-# Stores all statistical information for run
 class Stats(object):
+    '''
+    Stores all statistical information for run
+    '''
     def __init__(self):
         self.count = 0
         self.valid = 0
@@ -113,37 +121,47 @@ class Stats(object):
         self.short = -1
         self.long = -1
 
-    # Update values in class
     def update(self, length, valid):
+        '''
+        Update values in class
+        '''
         self.shorter(length)
         self.longer(length)
         self.average(length, self.count)
         self.valid = valid
         self.count += 1
 
-    # Check Shortest
     def shorter(self, length):
+        '''
+        Check Shortest
+        '''
         if self.short == -1:
             self.short = length
         elif length < self.short:
             self.short = length
 
-    # Check Longest
     def longer(self, length):
+        '''
+        Check Longest
+        '''
         if self.long == -1:
             self.long = length
         elif self.long < length:
             self.long = length
 
-    # Compute rolling average
     def average(self, length, count):
+        '''
+        Compute rolling average
+        '''
         if count == 0:
             self.avg = length
         else:
             self.avg = (self.avg + ((length - self.avg) / (count + 1)))
 
-# Parse the input file and print to output file cleaned sequences
 def parse(options, fileList, stats):
+    '''
+    Parse the input file and print to output file cleaned sequences
+    '''
     valid = 0
 
     # Open output files
@@ -198,9 +216,10 @@ def parse(options, fileList, stats):
     mapFile.close()
     removedSeqs.close()
 
-# Checks if sequence contains only valid characters
 def checkAlphabet(seq, options):
-
+    '''
+    Checks if sequence contains only valid characters
+    '''
     # Check if valid DNA sequence
     if options.dna:
         if re.match("^[ACTG]*$", seq):
@@ -212,15 +231,19 @@ def checkAlphabet(seq, options):
             return True
     return False
 
-# Replace invalid characters in a sequence with A
 def fixSeq(seq, options):
+    '''
+    Replace invalid characters in a sequence with A
+    '''
     for letter in seq:
         if checkAlphabet(letter, options) == False:
             seq = seq.replace(letter, 'A')
     return seq
 
-# Main
 def main():
+    '''
+    Main
+    '''
     run(setUp())
 
 if __name__ == "__main__":
