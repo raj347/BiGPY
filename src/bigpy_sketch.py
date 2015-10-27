@@ -11,51 +11,94 @@ Distributed under the MIT License.
 See accompanying file LICENSE_MIT.txt.
 This file is part of BiGPy.
 '''
-
+from __future__ import print_function
 import logging
 import mmh3
 import pprint
+import ctypes
 from optparse import OptionParser
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from utils import timeit
 
+
 pp = pprint.PrettyPrinter(indent=4)
 
-SPARK_APP_NAME = "BitPyElasticSketch"
+SPARK_APP_NAME = "BiGPyElasticSketch"
 
-def kmerize(seq, kmer_length):
-    '''
-    Creates kmers for a given string @seq with @k as n.
-    TODO :
-        * Change the implementation to use generators
-    '''
-    kmers = [ ]
-    for i in xrange(len(seq) - (kmer_length-1)):
-        kmers.append((i, seq[i:i+kmer_length]))
-    return kmers
+def int64_to_uint64(i):
+    return ctypes.c_uint64(i).value
 
-def create_kmer_tuple(astring, kmer_length):
-   '''
-   For a string @astring, create a tuple (seq_id, kmers_index , hash)
-   '''
-   seq_id, seq = astring.split("\t")
-   kmer_tuple = []
-   for k in kmerize(seq, kmer_length):
-       # k is a tuple of (index, kmer_string)
-       kmer_tuple.append((seq_id, mmh3.hash64(k[1])[0], k[0]))
-   return kmer_tuple
+def gen_kmers(input, options):
+  '''
+  Generate list of kmers for input sequence of length k
+  '''
+  kmers = []
+  for i in xrange(len(input) - (options.kmer - 1)):
+    kmers.append(input[i:options.kmer + i])
+  return kmers
+  # input[0:options.kmer]
 
-def sketch(options):
-    '''
-    Sketch logic
-    '''
-    spark_context = SparkContext(appName=SPARK_APP_NAME, \
-                              master=options.spark_master)
-    fastaRDD = spark_context.textFile(options.input)
-    kmerRDD = fastaRDD.flatMap(lambda v : create_kmer_tuple(v, options.kmer_length))
-    pp.pprint(kmerRDD.collect())
+def map_sketch(input, options):
+  '''
+  Returns a list of sketches (x,r,d)
+  x = hashed sketch
+  r = ID of original sequence
+  d = count of kmers extracted
+  '''
+  id_seq = input.split('\t')
+  sketches = [(mmh3.hash64(i)[0], id_seq[0], len(id_seq[1]) - options.kmer + 1) for i in gen_kmers(id_seq[1], options)]
+  # if (mmh3.hash64(i)[0] % options.mod == 0)
+  return sketches
 
+def sketch(options, spark_context):
+    '''
+    Read input file into rdd
+    Generate RDD of sketches
+    Filler sketch RDD to only contain those of % == 0
+    '''
+    fsaRDD = spark_context.textFile(options.input)
+    sketchRDD = fsaRDD.flatMap(lambda s: map_sketch(s, options))
+    modRDD = sketchRDD.filter(lambda s: s[0] % options.mod == 0)
+
+    
+    # Print first 5 items in fsaRDD
+    pp.pprint("fsaRDD FIRST SEQUENCE")
+    pp.pprint(fsaRDD.take(1))
+    pp.pprint("sketchRDD sketchs")
+    pp.pprint(sketchRDD.take(11))
+    pp.pprint("modRDD after Filter")
+    pp.pprint(modRDD.take(6))
+    
+
+    '''
+    pp.pprint(mmh3.hash64('AAAAAAA'))
+    pp.pprint(type(int64_to_uint64(mmh3.hash64('AAAAAAA')[0])))
+    pp.pprint(int64_to_uint64(mmh3.hash64('AAAAAAA')[1]))
+    pp.pprint(mmh3.hash64('ABAAAAA'))
+    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAAAA')[0]))
+    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAAAA')[1]))
+    pp.pprint(mmh3.hash64('ABAAABA'))
+    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAABA')[0]))
+    pp.pprint(-1 * mmh3.hash64('ABAAABA')[1])
+    '''
+    # pp.pprint(sketchRDD.take(1))
+
+    # infile = spark_context.wholeTextFiles(options.input)
+    # pp.pprint(infile.take(5))
+    # rdd = spark_context.parallelize(infile.collect())
+    # rdd.saveAsSequenceFile('testSEQ')
+
+    # fsaRDD = spark_context.sequenceFile('testSEQ')
+    # pp.pprint(fsaRDD.take(1))    
+
+    # fsaRDD.saveAsSequenceFile(options.input)
+    # sketchRDD = fsaRDD.flatMap()
+
+
+
+    # kmerRDD = fastaRDD.flatMap(lambda v : create_kmer_tuple(v, options.kmer_length))
+    
 def setup():
     '''
     Handle command line arguments.
@@ -76,11 +119,17 @@ def setup():
         default="N/A", \
         help="Sketch phase output file a name without extension",\
         metavar="FILE")
-    parser.add_option("-k", "--kmerlength", \
+    parser.add_option("-k", "--kmer", \
         action="store", \
         type="int", \
-        dest="kmer_length", \
-        default=None, \
+        dest="kmer", \
+        default=-1, \
+        help="Lenght of the KMERs")
+    parser.add_option("--mod", \
+        action="store", \
+        type="int", \
+        dest="mod", \
+        default=2, \
         help="Lenght of the KMERs")
     parser.add_option("-m", "--master", \
         action="store", \
@@ -99,7 +148,7 @@ def setup():
         parser.error("Output filename required.\n" +\
                      "Please include a filename without extension.\n" +\
                      "Use -h or --help for options\n")
-    if not int(options.kmer_length):
+    if options.kmer == -1:
         parser.error("KMER length required.\n"+
                       "Use -h or --help for options.\n")
     return options
@@ -111,7 +160,9 @@ def main():
     Get the File names for I/O and run the sketch phase.
     '''
     options = setup()
-    sketch(options)
+    spark_context = SparkContext(appName=SPARK_APP_NAME, \
+                              master=options.spark_master)
+    sketch(options, spark_context)
 
 if __name__ == "__main__":
     main()
