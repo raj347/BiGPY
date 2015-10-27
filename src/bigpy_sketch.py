@@ -16,6 +16,7 @@ import logging
 import mmh3
 import pprint
 import ctypes
+import numpy
 from optparse import OptionParser
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
@@ -35,7 +36,8 @@ def gen_kmers(input, options):
   '''
   kmers = []
   for i in xrange(len(input) - (options.kmer - 1)):
-    kmers.append(input[i:options.kmer + i])
+    kmers.append(str(input[i:options.kmer + i]))
+  # pp.pprint(kmers)
   return kmers
   # input[0:options.kmer]
 
@@ -47,7 +49,8 @@ def map_sketch(input, options):
   d = count of kmers extracted
   '''
   id_seq = input.split('\t')
-  sketches = [(mmh3.hash64(i)[0], id_seq[0], len(id_seq[1]) - options.kmer + 1) for i in gen_kmers(id_seq[1], options)]
+  # pp.pprint(type(id_seq[0]))
+  sketches = [(mmh3.hash64(i)[0], int(id_seq[0]), len(id_seq[1]) - options.kmer + 1) for i in gen_kmers(id_seq[1], options)]
   # if (mmh3.hash64(i)[0] % options.mod == 0)
   return sketches
 
@@ -72,9 +75,9 @@ def sketch(options, spark_context):
     
 
     '''
-    pp.pprint(mmh3.hash64('AAAAAAA'))
-    pp.pprint(type(int64_to_uint64(mmh3.hash64('AAAAAAA')[0])))
-    pp.pprint(int64_to_uint64(mmh3.hash64('AAAAAAA')[1]))
+    pp.pprint(mmh3.hash64('ABAAAAA'))
+    pp.pprint((mmh3.hash64('ABAAAAA')[1]))
+    pp.pprint(numpy.uint64(mmh3.hash64('ABAAAAA')[1]))
     pp.pprint(mmh3.hash64('ABAAAAA'))
     pp.pprint(int64_to_uint64(mmh3.hash64('ABAAAAA')[0]))
     pp.pprint(int64_to_uint64(mmh3.hash64('ABAAAAA')[1]))
