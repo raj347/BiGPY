@@ -15,16 +15,16 @@ from __future__ import print_function
 import logging
 import mmh3
 import pprint
-import ctypes
-import numpy
+import os
+import sys
+from os.path import dirname
 from optparse import OptionParser
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from utils import timeit
 
-
 pp = pprint.PrettyPrinter(indent=4)
-
+sys.path.append(dirname(os.getcwd()[0:-3] + "include/"))
 SPARK_APP_NAME = "BiGPyElasticSketch"
 
 def int64_to_uint64(i):
@@ -62,8 +62,8 @@ def sketch(options, spark_context):
     '''
     fsaRDD = spark_context.textFile(options.input)
     sketchRDD = fsaRDD.flatMap(lambda s: map_sketch(s, options))
-    modRDD = sketchRDD.filter(lambda s: s[0] % options.mod == 0).groupByKey(lambda k: k[0] % options.nodes)
-
+    modRDD = sketchRDD.filter(lambda s: s[0] % options.mod == 0)
+    # pp.pprint(os.getcwd()[0:-3] + "include/")
     
     # Print first 5 items in fsaRDD
     pp.pprint("fsaRDD FIRST SEQUENCE")
