@@ -15,7 +15,7 @@ This file is part of BiGPy.
 from Bio import SeqIO
 from optparse import OptionParser, Option, OptionValueError
 import sys, os
-import timeit
+import timeit, time
 import re
 from os.path import dirname
 
@@ -260,8 +260,10 @@ def main():
     '''
     Main
     '''
-    sys.path.append(dirname(os.getcwd()[0:-3] + "include/biopython/"))
+    sys.path.append(dirname(os.getcwd()[0:-3] + "include/biopython/Bio/"))
     run(setUp())
+
+    print sys.path
 
 if __name__ == "__main__":
     main()
