@@ -13,7 +13,7 @@ This file is part of BiGPy.
 '''
 
 from Bio import SeqIO
-from optparse import OptionParser
+from optparse import OptionParser, Option, OptionValueError
 import sys
 import timeit
 import re
@@ -24,11 +24,15 @@ def setUp():
     Handle command line arg options
     '''
     parser = OptionParser()
+    if len(sys.argv) == 1:
+        parser.error("\n\tInput and Output files required" \
+            "\n\tUse -h or --help for options")
+    
     parser.add_option("-i", "--input", \
         action="store", \
         type="string", \
         dest="input", \
-        default="N/A", \
+        default=None, \
         help="{FILE|DIR} to read input sequence list from" \
         "\tCurrently only fsa/fasta files supported", \
         metavar="{FILE|DIR}")
@@ -36,7 +40,7 @@ def setUp():
         action="store", \
         type="string", \
         dest="output", \
-        default="N/A", \
+        default=None, \
         help="FILE to print output files to" \
         "\t\t\t\tFILE is a name without extension\nie. BiGPY", \
         metavar="FILE")
@@ -62,13 +66,15 @@ def setUp():
     (options, sys.argv) = parser.parse_args()
 
     # Print error messages if required options are not provided
-    if options.input == "N/A":
-        parser.error("\n\tInput file or directory required" \
+    if not options.input:
+        raise OptionValueError("\n\tInput file or directory required" \
             "\n\tUse -h or --help for options")
-    if options.output.find('/') != -1 or options.output.find('.') != -1:
-        parser.error("\n\tOutput filename required." + \
+    if not options.output:
+        raise OptionValueError("\n\tOutput file required" \
+            "\n\tUse -h or --help for options")
+    if options.output.find('.') != -1 or options.output[-1:] == "/":
+        raise OptionValueError("\n\tOutput filename required." \
             "\n\tPlease include a filename without extension (ie. bigpy)" \
-            "\n\tCurrently BiGPY only supports output to same directory" \
             "\n\tUse -h or --help for options")
     return options
 
@@ -82,7 +88,6 @@ def run(options):
     print "scanning " + options.input + " for input files..."
     files = checkDir(options, fileList)
     print "found " + str(files) + " input file(s)\nextracting sequences..."
-
     # Parse files
     start_time = timeit.default_timer()
     parse(options, fileList, stats)
@@ -109,6 +114,16 @@ def checkDir(options, filelist):
         filelist.append(options.input)
         inputFiles += 1
     return inputFiles
+
+def setOutput(options):
+    if options.output.find('/') != -1:
+        index = options.output.rfind('/')
+        path = options.output[0:index + 1]
+        output = options.output[index + 1:]
+        os.chdir(path)
+        return output
+    return options.output
+
 
 class Stats(object):
     '''
@@ -165,9 +180,10 @@ def parse(options, fileList, stats):
     valid = 0
 
     # Open output files
-    cleanFile = open(options.output + ".btxt", "w+")
-    mapFile = open(options.output + ".bmap", "w+")
-    removedSeqs = open(options.output + ".brm", "w+")
+    output = setOutput(options)
+    cleanFile = open(output + ".btxt", "w+")
+    mapFile = open(output + ".bmap", "w+")
+    removedSeqs = open(output + ".brm", "w+")
 
     # Iterate through input and write to output files
     for files in fileList:

@@ -62,7 +62,7 @@ def sketch(options, spark_context):
     '''
     fsaRDD = spark_context.textFile(options.input)
     sketchRDD = fsaRDD.flatMap(lambda s: map_sketch(s, options))
-    modRDD = sketchRDD.filter(lambda s: s[0] % options.mod == 0)
+    modRDD = sketchRDD.filter(lambda s: s[0] % options.mod == 0).groupByKey(lambda k: k[0] % options.nodes)
 
     
     # Print first 5 items in fsaRDD
@@ -133,6 +133,12 @@ def setup():
         type="int", \
         dest="mod", \
         default=2, \
+        help="Lenght of the KMERs")
+    parser.add_option("-p", \
+        action="store", \
+        type="int", \
+        dest="nodes", \
+        default=3, \
         help="Lenght of the KMERs")
     parser.add_option("-m", "--master", \
         action="store", \
