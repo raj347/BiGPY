@@ -260,7 +260,6 @@ def main():
     '''
     Main
     '''
-    sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3"))
     sys.path.append(dirname(os.getcwd()[0:-3] + "include/biopython/"))
     run(setUp())
 
