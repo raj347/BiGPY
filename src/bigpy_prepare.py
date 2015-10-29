@@ -14,10 +14,10 @@ This file is part of BiGPy.
 
 from Bio import SeqIO
 from optparse import OptionParser, Option, OptionValueError
-import sys
+import sys, os
 import timeit
 import re
-import os
+from os.path import dirname
 
 def setUp():
     '''
@@ -260,6 +260,8 @@ def main():
     '''
     Main
     '''
+    sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3"))
+    sys.path.append(dirname(os.getcwd()[0:-3] + "include/biopython/"))
     run(setUp())
 
 if __name__ == "__main__":
