@@ -18,7 +18,6 @@ import sys, os
 import timeit, time
 import re
 from os.path import dirname
-print os.getcwd()[0:-3] + "include/biopython/Bio/"
 sys.path.append(dirname(os.getcwd()[0:-3] + "include/biopython/Bio/"))
 from Bio import SeqIO
 
@@ -264,8 +263,5 @@ def main():
     Main
     '''
     run(setUp())
-
-    print sys.path
-
 if __name__ == "__main__":
     main()
