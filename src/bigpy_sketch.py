@@ -13,7 +13,6 @@ This file is part of BiGPy.
 '''
 from __future__ import print_function
 import logging
-import mmh3
 import pprint
 import os, sys
 from os.path import dirname
@@ -21,7 +20,8 @@ from optparse import OptionParser
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from utils import timeit
-
+sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3-2.0"))
+import mmh3
 pp = pprint.PrettyPrinter(indent=4)
 SPARK_APP_NAME = "BiGPyElasticSketch"
 
