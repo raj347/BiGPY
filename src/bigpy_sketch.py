@@ -20,9 +20,10 @@ from optparse import OptionParser
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from utils import timeit
-sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3-2.0"))
+sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3-2.0/"))
 import mmh3
 pp = pprint.PrettyPrinter(indent=4)
+pp.pprint(sys.path)
 SPARK_APP_NAME = "BiGPyElasticSketch"
 
 def int64_to_uint64(i):
