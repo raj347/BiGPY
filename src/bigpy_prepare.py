@@ -18,7 +18,7 @@ import sys, os
 import timeit, time
 import re
 from os.path import dirname
-sys.path.append(dirname(os.getcwd()[0:-3] + "include/biopython-master/Bio/"))
+sys.path.append(dirname(os.getcwd()[0:-3] + "include/biopython-master/"))
 from Bio import SeqIO
 
 def setUp():

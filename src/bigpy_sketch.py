@@ -20,14 +20,13 @@ from optparse import OptionParser
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from utils import timeit
-sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3-2.0/"))
+sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3-2.0/build/lib.linux-86_64-2.7/"))
 import mmh3
+
 pp = pprint.PrettyPrinter(indent=4)
-pp.pprint(sys.path)
 SPARK_APP_NAME = "BiGPyElasticSketch"
 
-def int64_to_uint64(i):
-    return ctypes.c_uint64(i).value
+y    return ctypes.c_uint64(i).value
 
 def gen_kmers(input, options):
   '''
@@ -45,8 +44,8 @@ def map_sketch(input, options):
   Returns a list of sketches (x,r,d)
   x = hashed sketch
   r = ID of original sequence
-  d = count of kmers extracted
-  '''
+  d = count of kmers extracte
+d  '''
   id_seq = input.split('\t')
   # pp.pprint(type(id_seq[0]))
   sketches = [(mmh3.hash64(i)[0], int(id_seq[0]), len(id_seq[1]) - options.kmer + 1) for i in gen_kmers(id_seq[1], options)]
@@ -118,7 +117,7 @@ def setup():
         action="store", \
         type="string", \
         dest="output", \
-        default="N/A", \
+        default=None, \
         help="Sketch phase output file a name without extension",\
         metavar="FILE")
     parser.add_option("-k", "--kmer", \
@@ -150,17 +149,28 @@ def setup():
 
     # Print error messages if required options are not provided
     if not options.input:
-        parser.error("Input file required.\n"+
-                      "Use -h or --help for options.\n")
-    if options.output.find('/') != -1 or options.output.find('.') != -1:
-        parser.error("Output filename required.\n" +\
-                     "Please include a filename without extension.\n" +\
-                     "Use -h or --help for options\n")
+        raise OptionValueError("\n\tInput file required" \
+            "\n\tUse -h or --help for options")
+    if not options.output:
+        raise OptionValueError("\n\tOutput file required" \
+            "\n\tUse -h or --help for options")
+    if options.output.find('.') != -1 or options.output[-1:] == "/":
+        raise OptionValueError("\n\tOutput filename required." \
+            "\n\tPlease include a filename without extension (ie. bigpy)" \
+            "\n\tUse -h or --help for options")
     if options.kmer == -1:
-        parser.error("KMER length required.\n"+
-                      "Use -h or --help for options.\n")
+        parser.error("\n\tKMER length required." \
+            "\n\tUse -h or --help for options.")
     return options
 
+def setOutput(options):
+    if options.output.find('/') != -1:
+        index = options.output.rfind('/')
+        path = options.output[0:index + 1]
+        output = options.output[index + 1:]
+        os.chdir(path)
+        return output
+    return options.output
 
 @timeit
 def main():
@@ -169,6 +179,7 @@ def main():
     '''
     sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3"))
     options = setup()
+    setOutput(options)
     spark_context = SparkContext(appName=SPARK_APP_NAME, \
                               master=options.spark_master)
     sketch(options, spark_context)
