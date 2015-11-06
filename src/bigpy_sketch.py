@@ -16,7 +16,7 @@ import logging
 import pprint
 import os, sys
 from os.path import dirname
-from optparse import OptionParser
+from optparse import OptionParser, Option, OptionValueError
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from utils import timeit
@@ -25,8 +25,6 @@ import mmh3
 
 pp = pprint.PrettyPrinter(indent=4)
 SPARK_APP_NAME = "BiGPyElasticSketch"
-
-y    return ctypes.c_uint64(i).value
 
 def gen_kmers(input, options):
   '''
@@ -44,8 +42,8 @@ def map_sketch(input, options):
   Returns a list of sketches (x,r,d)
   x = hashed sketch
   r = ID of original sequence
-  d = count of kmers extracte
-d  '''
+  d = count of kmers extracted
+  '''
   id_seq = input.split('\t')
   # pp.pprint(type(id_seq[0]))
   sketches = [(mmh3.hash64(i)[0], int(id_seq[0]), len(id_seq[1]) - options.kmer + 1) for i in gen_kmers(id_seq[1], options)]
@@ -61,15 +59,14 @@ def sketch(options, spark_context):
     fsaRDD = spark_context.textFile(options.input)
     sketchRDD = fsaRDD.flatMap(lambda s: map_sketch(s, options))
     modRDD = sketchRDD.filter(lambda s: s[0] % options.mod == 0)
-    # pp.pprint(os.getcwd()[0:-3] + "include/")
     
     # Print first 5 items in fsaRDD
     pp.pprint("fsaRDD FIRST SEQUENCE")
     pp.pprint(fsaRDD.take(1))
     pp.pprint("sketchRDD sketchs")
-    pp.pprint(sketchRDD.take(11))
+    pp.pprint(sketchRDD.take(20))
     pp.pprint("modRDD after Filter")
-    pp.pprint(modRDD.take(6))
+    pp.pprint(modRDD.take(10))
     
 
     '''
@@ -179,7 +176,7 @@ def main():
     '''
     sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3"))
     options = setup()
-    setOutput(options)
+    #setOutput(options)
     spark_context = SparkContext(appName=SPARK_APP_NAME, \
                               master=options.spark_master)
     sketch(options, spark_context)
