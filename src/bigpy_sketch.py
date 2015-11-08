@@ -20,7 +20,7 @@ from optparse import OptionParser, Option, OptionValueError
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
 from utils import timeit
-sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3-2.0/build/lib.linux-86_64-2.7/"))
+sys.path.append(dirname(os.getcwd()[0:-3] + "/gpfs/projects/jzola/paulkowa/BiGPY/include/mmh3-2.0/build/lib.linux-x86_64-2.7/"))
 import mmh3
 
 pp = pprint.PrettyPrinter(indent=4)
