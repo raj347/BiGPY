@@ -72,8 +72,8 @@ def combine_pairs(input, options):
                     pp.pprint(output)
         return output
 
-def sketch(options, spark_context, master):
 
+def sketch(options, spark_context, master):
     '''
     Read input file into rdd
     Generate RDD of sketches
@@ -98,6 +98,37 @@ def sketch(options, spark_context, master):
     pp.pprint(redRDD.take(100))
     pp.pprint("testRDD after sorting")
     pp.pprint(testRDD.take(1000))
+
+    # Remove spark:// and port in the end of the master url
+    pp.pprint(master)
+    master = master.split(":")[1][2:]
+    dump_data("http://" + master + ":4040/api/v1",options.input)
+    
+
+    '''
+    pp.pprint(mmh3.hash64('ABAAAAA'))
+    pp.pprint((mmh3.hash64('ABAAAAA')[1]))
+    pp.pprint(numpy.uint64(mmh3.hash64('ABAAAAA')[1]))
+    pp.pprint(mmh3.hash64('ABAAAAA'))
+    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAAAA')[0]))
+    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAAAA')[1]))
+    pp.pprint(mmh3.hash64('ABAAABA'))
+    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAABA')[0]))
+    pp.pprint(-1 * mmh3.hash64('ABAAABA')[1])
+    '''
+    # pp.pprint(sketchRDD.take(1))
+
+    # infile = spark_context.wholeTextFiles(options.input)
+    # pp.pprint(infile.take(5))
+    # rdd = spark_context.parallelize(infile.collect())
+    # rdd.saveAsSequenceFile('testSEQ')
+
+    # fsaRDD = spark_context.sequenceFile('testSEQ')
+    # pp.pprint(fsaRDD.take(1))    
+
+    # fsaRDD.saveAsSequenceFile(options.input)
+    # sketchRDD = fsaRDD.flatMap()
+
 
     # Remove spark:// and port in the end of the master url
     pp.pprint(master)
