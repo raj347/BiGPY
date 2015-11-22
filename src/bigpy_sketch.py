@@ -22,6 +22,7 @@ from pyspark.streaming import StreamingContext
 from utils import timeit
 sys.path.append(dirname(os.getcwd()[0:-3] + "/gpfs/projects/jzola/paulkowa/BiGPY/include/mmh3-2.0/build/lib.linux-x86_64-2.7/"))
 import mmh3
+from metrics import dump_data
 
 pp = pprint.PrettyPrinter(indent=4)
 SPARK_APP_NAME = "BiGPyElasticSketch"
@@ -50,7 +51,7 @@ def map_sketch(input, options):
   # if (mmh3.hash64(i)[0] % options.mod == 0)
   return sketches
 
-def sketch(options, spark_context):
+def sketch(options, spark_context, master):
     '''
     Read input file into rdd
     Generate RDD of sketches
@@ -67,6 +68,11 @@ def sketch(options, spark_context):
     pp.pprint(sketchRDD.take(20))
     pp.pprint("modRDD after Filter")
     pp.pprint(modRDD.take(10))
+
+    # Remove spark:// and port in the end of the master url
+    pp.pprint(master)
+    master = master.split(":")[1][2:]
+    dump_data("http://" + master + ":4040/api/v1",options.input)
     
 
     '''
@@ -179,7 +185,7 @@ def main():
     #setOutput(options)
     spark_context = SparkContext(appName=SPARK_APP_NAME, \
                               master=options.spark_master)
-    sketch(options, spark_context)
+    sketch(options, spark_context, options.spark_master)
 
 if __name__ == "__main__":
     main()
