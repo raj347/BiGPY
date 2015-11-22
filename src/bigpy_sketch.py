@@ -22,6 +22,8 @@ from pyspark.streaming import StreamingContext
 from utils import timeit
 sys.path.append(dirname(os.getcwd()[0:-3] + "include/mmh3-2.0"))
 import mmh3
+from metrics import dump_data
+
 pp = pprint.PrettyPrinter(indent=4)
 SPARK_APP_NAME = "BiGPyElasticSketch"
 
@@ -70,6 +72,11 @@ def sketch(options, spark_context):
     pp.pprint(sketchRDD.take(11))
     pp.pprint("modRDD after Filter")
     pp.pprint(modRDD.take(6))
+
+    # Remove spark:// and port in the end of the master url
+    pp.pprint(master)
+    master = master.split(":")[1][2:]
+    dump_data("http://" + master + ":4040/api/v1",options.input)
     
 
     '''
@@ -170,7 +177,7 @@ def main():
     options = setup()
     spark_context = SparkContext(appName=SPARK_APP_NAME, \
                               master=options.spark_master)
-    sketch(options, spark_context)
+    sketch(options, spark_context, options.spark_master)
 
 if __name__ == "__main__":
     main()
