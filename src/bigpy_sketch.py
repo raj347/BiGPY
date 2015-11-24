@@ -52,28 +52,25 @@ def map_sketch(input, options):
   # if (mmh3.hash64(i)[0] % options.mod == 0)
   return sketches
 
-def combine_pairs(input, options):
-    #pp.pprint(len(input[1]))
-    if len(input[1]) == 3:
-        return (input[1][0], input[1][0], input[1][2])
-    else:
-        pp.pprint(len(input[1]))   
-        step = len(input[1]) / 3
-        pp.pprint(step)
-        output = []
-        # Iterate to each n sequence ID
-        for n in range(1, len(input[1]), step):
-            pp.pprint("n = " +  str(n))
-            # Iterate through each sequence ID after the nth ID
-            for i in range(n + 3, len(input[1]), 3):
-                pp.pprint("i = " + str(i))
-                if i != len(input[1]) - 2:
-                    output.append((input[1][n], input[1][i], input[1][n + 2] + input[1][i + 2]))
-                    pp.pprint(output)
-        return output
 
+def combine_pairs(input, options):
+    # pp.pprint(len(input))   
+    step = len(input) / 3
+    # pp.pprint(step)
+    output = []
+    # Iterate to each n sequence ID
+    for n in range(0, len(input) - 1, step):
+        # pp.pprint("n = " +  str(n))
+        # Iterate through each sequence ID after the nth ID
+        for i in range(n + 3, len(input) -1, 3):
+            # pp.pprint("i = " + str(i))
+            if i != len(input) - 2:
+                output.append((input[n], input[i], input[n + 2] + input[i + 2]))
+                # pp.pprint(output)
+    return output
 
 def sketch(options, spark_context, master):
+
     '''
     Read input file into rdd
     Generate RDD of sketches
@@ -83,8 +80,7 @@ def sketch(options, spark_context, master):
     sketchRDD = fsaRDD.flatMap(lambda s: map_sketch(s, options))
     # sketchRDD.persist()
     modRDD = sketchRDD.filter(lambda s: s[0] % options.mod == 0)
-    redRDD = modRDD.reduceByKey(lambda k, v: k + v).sortByKey()
-    testRDD = redRDD.flatMap(lambda v: combine_pairs(v, options))
+    redRDD = modRDD.reduceByKey(lambda k, v: k + v).filter(lambda v: len(v[1]) > 3).flatMap(lambda v: combine_pairs(v[1], options))
 
 
     # Print first 5 items in fsaRDD
@@ -96,40 +92,7 @@ def sketch(options, spark_context, master):
     pp.pprint(modRDD.take(10))
     pp.pprint("redRDD after Reduce")
     pp.pprint(redRDD.take(100))
-    pp.pprint("testRDD after sorting")
-    pp.pprint(testRDD.take(1000))
-
-    # Remove spark:// and port in the end of the master url
-    pp.pprint(master)
-    master = master.split(":")[1][2:]
-    dump_data("http://" + master + ":4040/api/v1",options.input)
     
-
-    '''
-    pp.pprint(mmh3.hash64('ABAAAAA'))
-    pp.pprint((mmh3.hash64('ABAAAAA')[1]))
-    pp.pprint(numpy.uint64(mmh3.hash64('ABAAAAA')[1]))
-    pp.pprint(mmh3.hash64('ABAAAAA'))
-    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAAAA')[0]))
-    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAAAA')[1]))
-    pp.pprint(mmh3.hash64('ABAAABA'))
-    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAABA')[0]))
-    pp.pprint(-1 * mmh3.hash64('ABAAABA')[1])
-    '''
-    # pp.pprint(sketchRDD.take(1))
-
-    # infile = spark_context.wholeTextFiles(options.input)
-    # pp.pprint(infile.take(5))
-    # rdd = spark_context.parallelize(infile.collect())
-    # rdd.saveAsSequenceFile('testSEQ')
-
-    # fsaRDD = spark_context.sequenceFile('testSEQ')
-    # pp.pprint(fsaRDD.take(1))    
-
-    # fsaRDD.saveAsSequenceFile(options.input)
-    # sketchRDD = fsaRDD.flatMap()
-
-
     # Remove spark:// and port in the end of the master url
     pp.pprint(master)
     master = master.split(":")[1][2:]
