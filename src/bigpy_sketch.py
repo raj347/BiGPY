@@ -33,25 +33,44 @@ def gen_kmers(input, options):
   '''
   kmers = []
   for i in xrange(len(input) - (options.kmer - 1)):
-    kmers.append(str(input[i:options.kmer + i]))
-  # pp.pprint(kmers)
+    kmers.append((str(input[i:options.kmer + i]), i))
+  #pp.pprint(kmers)
   return kmers
   # input[0:options.kmer]
 
 def map_sketch(input, options):
   '''
-  Returns a list of sketches (x,r,d)
+  Returns a list of sketches (x,r, pos, d)
   x = hashed sketch
   r = ID of original sequence
+  pos = index of kmer starting position in original sequence
   d = count of kmers extracted
   '''
   id_seq = input.split('\t')
   # pp.pprint(type(id_seq[0]))
-  sketches = [(mmh3.hash64(i)[0], int(id_seq[0]), len(id_seq[1]) - options.kmer + 1) for i in gen_kmers(id_seq[1], options)]
+  sketches = [(mmh3.hash64(i[0])[0], (int(id_seq[0]), i[1], len(id_seq[1]) - options.kmer + 1)) for i in gen_kmers(id_seq[1], options)]
   # if (mmh3.hash64(i)[0] % options.mod == 0)
   return sketches
 
+
+def combine_pairs(input, options):
+    # pp.pprint(len(input))   
+    step = len(input) / 3
+    # pp.pprint(step)
+    output = []
+    # Iterate to each n sequence ID
+    for n in range(0, len(input) - 1, step):
+        # pp.pprint("n = " +  str(n))
+        # Iterate through each sequence ID after the nth ID
+        for i in range(n + 3, len(input) -1, 3):
+            # pp.pprint("i = " + str(i))
+            if i != len(input) - 2:
+                output.append((input[n], input[i], input[n + 2] + input[i + 2]))
+                # pp.pprint(output)
+    return output
+
 def sketch(options, spark_context, master):
+
     '''
     Read input file into rdd
     Generate RDD of sketches
@@ -59,50 +78,28 @@ def sketch(options, spark_context, master):
     '''
     fsaRDD = spark_context.textFile(options.input)
     sketchRDD = fsaRDD.flatMap(lambda s: map_sketch(s, options))
+    # sketchRDD.persist()
     modRDD = sketchRDD.filter(lambda s: s[0] % options.mod == 0)
-    
+    redRDD = modRDD.reduceByKey(lambda k, v: k + v).filter(lambda v: len(v[1]) > 3).flatMap(lambda v: combine_pairs(v[1], options))
+
+
     # Print first 5 items in fsaRDD
     pp.pprint("fsaRDD FIRST SEQUENCE")
-    pp.pprint(fsaRDD.take(1))
+    pp.pprint(fsaRDD.take(3))
     pp.pprint("sketchRDD sketchs")
-    pp.pprint(sketchRDD.take(20))
+    pp.pprint(sketchRDD.take(10))
     pp.pprint("modRDD after Filter")
     pp.pprint(modRDD.take(10))
+    pp.pprint("redRDD after Reduce")
+    pp.pprint(redRDD.take(100))
 
     # Remove spark:// and port in the end of the master url
     pp.pprint(master)
     master = master.split(":")[1][2:]
     dump_data("http://" + master + ":4040/api/v1",options.input)
-    
-
-    '''
-    pp.pprint(mmh3.hash64('ABAAAAA'))
-    pp.pprint((mmh3.hash64('ABAAAAA')[1]))
-    pp.pprint(numpy.uint64(mmh3.hash64('ABAAAAA')[1]))
-    pp.pprint(mmh3.hash64('ABAAAAA'))
-    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAAAA')[0]))
-    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAAAA')[1]))
-    pp.pprint(mmh3.hash64('ABAAABA'))
-    pp.pprint(int64_to_uint64(mmh3.hash64('ABAAABA')[0]))
-    pp.pprint(-1 * mmh3.hash64('ABAAABA')[1])
-    '''
-    # pp.pprint(sketchRDD.take(1))
-
-    # infile = spark_context.wholeTextFiles(options.input)
-    # pp.pprint(infile.take(5))
-    # rdd = spark_context.parallelize(infile.collect())
-    # rdd.saveAsSequenceFile('testSEQ')
-
-    # fsaRDD = spark_context.sequenceFile('testSEQ')
-    # pp.pprint(fsaRDD.take(1))    
-
-    # fsaRDD.saveAsSequenceFile(options.input)
-    # sketchRDD = fsaRDD.flatMap()
 
 
-
-    # kmerRDD = fastaRDD.flatMap(lambda v : create_kmer_tuple(v, options.kmer_length))
-    
+# Add node input for partitioning data
 def setup():
     '''
     Handle command line arguments.
