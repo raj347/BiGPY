@@ -66,9 +66,9 @@ def combine_pairs(input, options):
             # pp.pprint("i = " + str(i))
             if i != len(input) - 2 and input[n] != input[i]:
                 if input[n] < input[i]:
-                    output.append((input[n], input[i], min(input[n + 2], input[i + 2])))
+                    output.append(((input[n], input[i], min(input[n + 2], input[i + 2])), 1))
                 else:
-                    output.append((input[i], input[n], min(input[n + 2], input[i + 2])))
+                    output.append(((input[i], input[n], min(input[n + 2], input[i + 2])), 1))
                 # pp.pprint(output)
     return output
 
@@ -84,7 +84,7 @@ def sketch(options, spark_context, master):
     # sketchRDD.persist()
     modRDD = sketchRDD.filter(lambda s: s[0] % options.mod == 0)
     redRDD = modRDD.reduceByKey(lambda k, v: k + v).filter(lambda v: len(v[1]) > 3).flatMap(lambda v: combine_pairs(v[1], options))
-
+    countRDD = redRDD.reduceByKey(lambda a, b: a + b)
 
     # Print first 5 items in fsaRDD
     #pp.pprint("fsaRDD FIRST SEQUENCE")
@@ -95,6 +95,8 @@ def sketch(options, spark_context, master):
     pp.pprint(modRDD.take(20))
     pp.pprint("redRDD after Reduce")
     pp.pprint(redRDD.take(20))
+    pp.pprint("countRDD after Reduce")
+    pp.pprint(countRDD.take(20))
 
     # Remove spark:// and port in the end of the master url
     #pp.pprint(master)
