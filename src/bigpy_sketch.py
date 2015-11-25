@@ -59,13 +59,16 @@ def combine_pairs(input, options):
     # pp.pprint(step)
     output = []
     # Iterate to each n sequence ID
-    for n in range(0, len(input) - 1, step):
+    for n in range(0, len(input) - 1, 3):
         # pp.pprint("n = " +  str(n))
         # Iterate through each sequence ID after the nth ID
         for i in range(n + 3, len(input) -1, 3):
             # pp.pprint("i = " + str(i))
-            if i != len(input) - 2:
-                output.append((input[n], input[i], input[n + 2] + input[i + 2]))
+            if i != len(input) - 2 and input[n] != input[i]:
+                if input[n] < input[i]:
+                    output.append((input[n], input[i], min(input[n + 2], input[i + 2])))
+                else:
+                    output.append((input[i], input[n], min(input[n + 2], input[i + 2])))
                 # pp.pprint(output)
     return output
 
@@ -84,19 +87,19 @@ def sketch(options, spark_context, master):
 
 
     # Print first 5 items in fsaRDD
-    pp.pprint("fsaRDD FIRST SEQUENCE")
-    pp.pprint(fsaRDD.take(3))
+    #pp.pprint("fsaRDD FIRST SEQUENCE")
+    #pp.pprint(fsaRDD.take(3))
     pp.pprint("sketchRDD sketchs")
-    pp.pprint(sketchRDD.take(10))
+    pp.pprint(sketchRDD.take(20))
     pp.pprint("modRDD after Filter")
-    pp.pprint(modRDD.take(10))
+    pp.pprint(modRDD.take(20))
     pp.pprint("redRDD after Reduce")
-    pp.pprint(redRDD.take(100))
+    pp.pprint(redRDD.take(20))
 
     # Remove spark:// and port in the end of the master url
-    pp.pprint(master)
-    master = master.split(":")[1][2:]
-    dump_data("http://" + master + ":4040/api/v1",options.input)
+    #pp.pprint(master)
+    #master = master.split(":")[1][2:]
+    #dump_data("http://" + master + ":4040/api/v1",options.input)
 
 
 # Add node input for partitioning data
