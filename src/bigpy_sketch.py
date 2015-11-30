@@ -53,23 +53,18 @@ def map_sketch(input, options):
   return sketches
 
 
+# Combines input pairs of sequences with matching hashes
 def combine_pairs(input, options):
-    # pp.pprint(len(input))   
-    step = len(input) / 3
-    # pp.pprint(step)
     output = []
     # Iterate to each n sequence ID
     for n in range(0, len(input) - 1, 3):
-        # pp.pprint("n = " +  str(n))
         # Iterate through each sequence ID after the nth ID
         for i in range(n + 3, len(input) -1, 3):
-            # pp.pprint("i = " + str(i))
             if i != len(input) - 2 and input[n] != input[i]:
                 if input[n] < input[i]:
-                    output.append(((input[n], input[i], min(input[n + 2], input[i + 2])), 1))
+                    output.append(((input[n], input[i], min(input[n + 2], input[i + 2])), (input[n + 1], input[i + 1])))
                 else:
-                    output.append(((input[i], input[n], min(input[n + 2], input[i + 2])), 1))
-                # pp.pprint(output)
+                    output.append(((input[i], input[n], min(input[n + 2], input[i + 2])), (input[i + 1], input[n + 1])))
     return output
 
 def sketch(options, spark_context, master):
@@ -79,30 +74,78 @@ def sketch(options, spark_context, master):
     Generate RDD of sketches
     Filler sketch RDD to only contain those of % == 0
     '''
-    fsaRDD = spark_context.textFile(options.input)
-    sketchRDD = fsaRDD.flatMap(lambda s: map_sketch(s, options))
-    # sketchRDD.persist()
-    modRDD = sketchRDD.filter(lambda s: s[0] % options.mod == 0)
-    redRDD = modRDD.reduceByKey(lambda k, v: k + v).filter(lambda v: len(v[1]) > 3).flatMap(lambda v: combine_pairs(v[1], options))
-    countRDD = redRDD.reduceByKey(lambda a, b: a + b)
+
+    # Read from file and generate RDD of all sketches from original sequences
+    # (Hash, (id, pos, count))
+    sketchRDD = spark_context.textFile(options.input).flatMap(lambda s: map_sketch(s, options))
+    sketchRDD.persist()
+
+    for i in range(0, options.iter):
+        #Steps in order
+        # Filter (mod - i) sketches from sketchRDD => (Hash, (id, pos, count))
+        # Reduce sampled sketches => (Hash, (id1, pos1, count1, id2, pos2, count2, ...))
+        # Filter the reduced subset to remove singletons
+        # Map subset to (id(j), id(k), count(min(j,k)), (pos(j), pos(k))) for pairs that share a sketch
+        # Reduce => ((id(j), id(k), count(min(j,k)), (List of all positions of shared kmers))
+        # Map, set value to containment value => (id(j), id(k), C(min(j,k)), count)
+        modRDD = sketchRDD.filter(lambda s: s[0] % (options.mod - i) == 0).reduceByKey(lambda a, b: a + b).filter(lambda v: len(v[1]) > 3).flatMap(lambda v: combine_pairs(v[1], options)).reduceByKey(lambda a, b: a + b).map(lambda a: (a[0], (int(float((len(a[1]) / 2)) / float(a[0][2]) * 100))))
+        if i == 0:
+            # Set totalRDD to modRDD for first iteration
+            totalRDD = modRDD
+            totalRDD.persist()
+        else:
+            # Create the union of totalRDD and modRDD for each following iteration
+            totalRDD = totalRDD.union(modRDD)
+
+    # Materialize totalRDD and print sketches that share edges
+    # Not entirely sure why but if Reduce and filter are called in seperate lines from take, this operation does not work.
+    pp.pprint(totalRDD.reduceByKey(lambda a, b: a + b).filter(lambda a: a[1] > options.jmin).take(20))
+
+    #Remove spark:// and port in the end of the master url
+    #pp.pprint(master)
+    #master = master.split(":")[1][2:]
+    #dump_data("http://" + master + ":4040/api/v1",options.input)
+
+    '''
+    Old code
+    Use at own risk
+    '''
+    # Sample mod m from list of sketches
+    # (Hash, (id, pos, count))
+    # modRDD = sketchRDD.filter(lambda s: s[0] % (options.mod - i) == 0)
+
+    # Reduce sampled sketches to (Hash, (id1, pos1, count1, id2, pos2, count2, ...))
+    # Filter the reduced subset to remove singletons
+    # Map subset to (id(j), id(k), count(min(j,k)), (pos(j), pos(k))) for pairs that share a sketch
+    # Reduce to ((id(j), id(k), count(min(j,k)), (List of all positions of shared kmers))
+    #redRDD = modRDD.reduceByKey(lambda a, b: a + b).filter(lambda v: len(v[1]) > 3).flatMap(lambda v: combine_pairs(v[1], options)).reduceByKey(lambda a, b: a + b)
+
+    # Count number of occurances that a given pair shares kmers
+    # (id(j), id(k), count(min(j,k)), count)
+    #countRDD = redRDD.map(lambda a: (a[0], (int(float((len(a[1]) / 2)) / float(a[0][2]) * 100))))
+    
+    #totalRDD.reduceByKey(lambda a, b: a + b).filter(lambda a: a[1] < options.jmin)
 
     # Print first 5 items in fsaRDD
-    #pp.pprint("fsaRDD FIRST SEQUENCE")
-    #pp.pprint(fsaRDD.take(3))
-    pp.pprint("sketchRDD sketchs")
-    pp.pprint(sketchRDD.take(20))
-    pp.pprint("modRDD after Filter")
-    pp.pprint(modRDD.take(20))
-    pp.pprint("redRDD after Reduce")
-    pp.pprint(redRDD.take(20))
-    pp.pprint("countRDD after Reduce")
-    pp.pprint(countRDD.take(20))
-
+    #pp.pprint("sketchRDD sketchs")
+    #pp.pprint(sketchRDD.take(20))
+    #pp.pprint("modRDD after Filter")
+    #pp.pprint(modRDD.take(20))
+    #pp.pprint("redRDD after Reduce")
+    #pp.pprint(redRDD.take(20))
+    #pp.pprint("countRDD after Reduce")
+    #pp.pprint(countRDD.take(20))
+    #pp.pprint(totalRDD.take(20))
+    # Reduce output values after all iterations    
+    
     # Remove spark:// and port in the end of the master url
     #pp.pprint(master)
     #master = master.split(":")[1][2:]
     #dump_data("http://" + master + ":4040/api/v1",options.input)
 
+    '''
+    End old code
+    '''
 
 # Add node input for partitioning data
 def setup():
@@ -130,19 +173,25 @@ def setup():
         type="int", \
         dest="kmer", \
         default=-1, \
-        help="Lenght of the KMERs")
+        help="Length of the KMERs")
     parser.add_option("--mod", \
         action="store", \
         type="int", \
         dest="mod", \
         default=2, \
-        help="Lenght of the KMERs")
-    parser.add_option("-p", \
+        help="Value used for sampling kmers to be compared")
+    parser.add_option("-j", "--jmin", \
         action="store", \
         type="int", \
-        dest="nodes", \
-        default=3, \
-        help="Lenght of the KMERs")
+        dest="jmin", \
+        default=10, \
+        help="Minimal number of kmer matches required for a sequence to be compared")
+    parser.add_option("--iter", \
+        action="store", \
+        type="int", \
+        dest="iter", \
+        default=1, \
+        help="Number of iterations")
     parser.add_option("-m", "--master", \
         action="store", \
         type="string", \
