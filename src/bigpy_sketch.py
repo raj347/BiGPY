@@ -102,9 +102,9 @@ def sketch(options, spark_context, master):
     pp.pprint(totalRDD.reduceByKey(lambda a, b: a + b).filter(lambda a: a[1] > options.jmin).take(20))
 
     #Remove spark:// and port in the end of the master url
-    #pp.pprint(master)
-    #master = master.split(":")[1][2:]
-    #dump_data("http://" + master + ":4040/api/v1",options.input)
+    pp.pprint(master)
+    master = master.split(":")[1][2:]
+    dump_data("http://" + master + ":4040/api/v1",options.input)
 
     '''
     Old code
