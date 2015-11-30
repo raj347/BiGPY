@@ -87,8 +87,8 @@ def sketch(options, spark_context, master):
         # Filter the reduced subset to remove singletons
         # Map subset to (id(j), id(k), count(min(j,k)), (pos(j), pos(k))) for pairs that share a sketch
         # Reduce => ((id(j), id(k), count(min(j,k)), (List of all positions of shared kmers))
-        # Map, set value to containment value => (id(j), id(k), C(min(j,k)), count)
-        modRDD = sketchRDD.filter(lambda s: s[0] % (options.mod - i) == 0).reduceByKey(lambda a, b: a + b).filter(lambda v: len(v[1]) > 3).flatMap(lambda v: combine_pairs(v[1], options)).reduceByKey(lambda a, b: a + b).map(lambda a: (a[0], (int(float((len(a[1]) / 2)) / float(a[0][2]) * 100))))
+        # Map => ((id(j), id(k), count(min(j,k)), |shared kmers|))
+        modRDD = sketchRDD.filter(lambda s: s[0] % (options.mod - i) == 0).reduceByKey(lambda a, b: a + b).filter(lambda v: len(v[1]) > 3).flatMap(lambda v: combine_pairs(v[1], options)).reduceByKey(lambda a, b: a + b).map(lambda a: ((a[0]), len(a[1]) / 2))
         if i == 0:
             # Set totalRDD to modRDD for first iteration
             totalRDD = modRDD
@@ -98,9 +98,9 @@ def sketch(options, spark_context, master):
             totalRDD = totalRDD.union(modRDD)
 
     # Materialize totalRDD and print sketches that share edges
-    # Not entirely sure why but if Reduce and filter are called in seperate lines from take, this operation does not work.
-    pp.pprint(totalRDD.reduceByKey(lambda a, b: a + b).filter(lambda a: a[1] > options.jmin).take(20))
-
+    # Map, set value to containment value => (id(j), id(k), count(min(j,k)), C(j,k))
+    pp.pprint(totalRDD.reduceByKey(lambda a, b: a + b).map(lambda a: (a[0], int((float(a[1]) / float(a[0][2])) * 100))).take(20))
+    
     #Remove spark:// and port in the end of the master url
     pp.pprint(master)
     master = master.split(":")[1][2:]
@@ -125,6 +125,9 @@ def sketch(options, spark_context, master):
     #countRDD = redRDD.map(lambda a: (a[0], (int(float((len(a[1]) / 2)) / float(a[0][2]) * 100))))
     
     #totalRDD.reduceByKey(lambda a, b: a + b).filter(lambda a: a[1] < options.jmin)
+
+    # .reduceByKey(lambda a, b: a + b).filter(lambda a: a[1] > options.jmin)
+    # .map(lambda a: (a[0], (int(float((len(a[1]) / 2)) / float(a[0][2]) * 100))))
 
     # Print first 5 items in fsaRDD
     #pp.pprint("sketchRDD sketchs")
@@ -178,7 +181,7 @@ def setup():
         action="store", \
         type="int", \
         dest="mod", \
-        default=2, \
+        default=3, \
         help="Value used for sampling kmers to be compared")
     parser.add_option("-j", "--jmin", \
         action="store", \
